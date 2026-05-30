@@ -217,9 +217,14 @@ class BrowserManager:
         await page.keyboard.press("Backspace")
         await asyncio.sleep(0.2)
 
-        # Step 2: Type the prompt with human-like delays
-        logger.info(f"{LOG_PREFIX} ⌨️  Typing prompt ({len(prompt)} chars)...")
-        await self._human_type(prompt)
+        # Step 2: Input the prompt
+        input_method = self.provider.get_input_method()
+        if input_method == "fill":
+            logger.info(f"{LOG_PREFIX} 📥 Filling prompt instantly ({len(prompt)} chars)...")
+            await input_el.fill(prompt)
+        else:
+            logger.info(f"{LOG_PREFIX} ⌨️  Typing prompt ({len(prompt)} chars)...")
+            await self._human_type(prompt)
 
         # Step 3: Submit
         await asyncio.sleep(PRE_CLICK_DELAY)

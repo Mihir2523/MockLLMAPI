@@ -42,9 +42,15 @@ class GeminiProvider(BaseProvider):
 
     def get_response_selectors(self) -> list[str]:
         return [
-            # Target the last model response on the page
-            '.model-response-text:last-of-type',
-            '.response-content:last-of-type',
+            # Direct custom element tags (highly robust against class name changes)
+            'message-content',
+            '.markdown',
+            '.model-response-text',
+            '.response-content',
+            'div[class*="message-content" i]',
+            'div[class*="model-response" i]',
+            '[data-message-author-role="model" i]',
+            # Specific combinations
             'message-content:last-of-type .markdown',
             '[data-message-author-role="model"]:last-of-type .markdown',
             '.conversation-container .model-response:last-child .text-content',
@@ -72,8 +78,8 @@ class GeminiProvider(BaseProvider):
         return "https://gemini.google.com/app"
 
     def get_input_method(self) -> str:
-        # Gemini's contenteditable needs keyboard typing, not fill()
-        return "type"
+        # Use fast fill method (instant typing)
+        return "fill"
 
     def get_submit_method(self) -> str:
         return "enter"
