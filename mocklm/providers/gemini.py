@@ -42,7 +42,9 @@ class GeminiProvider(BaseProvider):
 
     def get_response_selectors(self) -> list[str]:
         return [
-            # Direct custom element tags (highly robust against class name changes)
+            # Model-specific custom element and role tags (top priority)
+            'message-content[data-message-author-role="model"]',
+            '[data-message-author-role="model"]',
             'message-content',
             '.markdown',
             '.model-response-text',
