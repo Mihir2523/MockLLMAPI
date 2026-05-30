@@ -24,15 +24,38 @@ playwright install chromium
 
 ---
 
-## 📋 Prerequisites
+## 📋 Prerequisites & Reusing Your Active Browser Session (CDP)
 
 **You must be logged into the LLM provider in your browser before using MockLLM.**
 
-MockLLM uses a persistent browser profile, so you only need to log in once:
+MockLLM offers two ways to handle logins:
 
-1. Run `llm.start()` — a browser window will open
-2. Log into your LLM account (Gemini, ChatGPT, etc.)
-3. That's it! Future runs will reuse your login session
+### Option A: Persistent Automation Browser (Default)
+MockLLM uses a persistent browser profile, so you only need to log in once:
+1. Run `llm.start()` — a Chromium window will open.
+2. Log into your LLM account (Gemini, ChatGPT, etc.).
+3. Future runs will reuse this browser profile and keep you logged in automatically.
+
+### Option B: Connect to Your Everyday Running Chrome (CDP Mode)
+If you don't want to log in again at all, you can connect MockLLM directly to your active Google Chrome browser where you are already logged into Gemini!
+1. Start Google Chrome from the command line with remote debugging enabled:
+   - **Windows**:
+     ```cmd
+     start chrome.exe --remote-debugging-port=9222
+     ```
+   - **macOS**:
+     ```bash
+     /Applications/Google\ Chrome.app/Contents/MacOS/Google\ Chrome --remote-debugging-port=9222
+     ```
+   - **Linux**:
+     ```bash
+     google-chrome --remote-debugging-port=9222
+     ```
+2. Initialize `MockLLM` with `cdp_url`:
+   ```python
+   llm = MockLLM(provider="gemini", cdp_url="http://localhost:9222")
+   llm.start()  # Connects directly to your running Chrome!
+   ```
 
 ---
 

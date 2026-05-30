@@ -67,11 +67,14 @@ class BrowserManager:
         self,
         provider: BaseProvider,
         headless: bool = HEADLESS_DEFAULT,
+        cdp_url: Optional[str] = None,
     ):
         self.provider = provider
         self.headless = headless
+        self.cdp_url = cdp_url
 
         self._playwright: Optional[Playwright] = None
+        self._browser_obj = None
         self._context: Optional[BrowserContext] = None
         self._page: Optional[Page] = None
         self._ready = False
@@ -83,22 +86,36 @@ class BrowserManager:
         Launch the browser with a persistent profile and navigate to
         the provider's URL.
         """
-        logger.info(f"{LOG_PREFIX} 🚀 Launching browser for {self.provider.name}...")
+        if self.cdp_url:
+            logger.info(f"{LOG_PREFIX} 🔌 Connecting to existing browser at {self.cdp_url}...")
+            self._playwright = await async_playwright().start()
+            self._browser_obj = await self._playwright.chromium.connect_over_cdp(self.cdp_url)
+            
+            # Use existing context or create one
+            if self._browser_obj.contexts:
+                self._context = self._browser_obj.contexts[0]
+            else:
+                self._context = await self._browser_obj.new_context(
+                    viewport={"width": 1280, "height": 800},
+                    ignore_https_errors=True,
+                )
+        else:
+            logger.info(f"{LOG_PREFIX} 🚀 Launching browser for {self.provider.name}...")
 
-        # Create persistent profile directory for this provider
-        profile_dir = BROWSER_DATA_BASE / self.provider.name
-        profile_dir.mkdir(parents=True, exist_ok=True)
+            # Create persistent profile directory for this provider
+            profile_dir = BROWSER_DATA_BASE / self.provider.name
+            profile_dir.mkdir(parents=True, exist_ok=True)
 
-        self._playwright = await async_playwright().start()
+            self._playwright = await async_playwright().start()
 
-        # Use persistent context to reuse login sessions
-        self._context = await self._playwright.chromium.launch_persistent_context(
-            user_data_dir=str(profile_dir),
-            headless=self.headless,
-            args=BROWSER_ARGS,
-            viewport={"width": 1280, "height": 800},
-            ignore_https_errors=True,
-        )
+            # Use persistent context to reuse login sessions
+            self._context = await self._playwright.chromium.launch_persistent_context(
+                user_data_dir=str(profile_dir),
+                headless=self.headless,
+                args=BROWSER_ARGS,
+                viewport={"width": 1280, "height": 800},
+                ignore_https_errors=True,
+            )
 
         # Use the first page or create one
         if self._context.pages:
@@ -128,17 +145,26 @@ class BrowserManager:
 
         self._ready = True
         logger.info(f"{LOG_PREFIX} ✅ Browser ready! Provider: {self.provider.name}")
-        logger.info(
-            f"{LOG_PREFIX} 📋 Make sure you are logged into {self.provider.name}. "
-            f"If not, please log in through the browser window now."
-        )
+        if not self.cdp_url:
+            logger.info(
+                f"{LOG_PREFIX} 📋 Make sure you are logged into {self.provider.name}. "
+                f"If not, please log in through the browser window now."
+            )
+        else:
+            logger.info(f"{LOG_PREFIX} 📋 Reusing your active system browser session via CDP.")
 
     async def shutdown(self) -> None:
         """Gracefully close the browser."""
         self._ready = False
         try:
-            if self._context:
-                await self._context.close()
+            if self.cdp_url:
+                if self._page:
+                    await self._page.close()
+                if self._browser_obj:
+                    await self._browser_obj.close()
+            else:
+                if self._context:
+                    await self._context.close()
             if self._playwright:
                 await self._playwright.stop()
         except Exception as e:
@@ -146,6 +172,7 @@ class BrowserManager:
         finally:
             self._context = None
             self._page = None
+            self._browser_obj = None
             self._playwright = None
             logger.info(f"{LOG_PREFIX} 🛑 Browser closed.")
 
@@ -182,6 +209,7 @@ class BrowserManager:
             self.provider.get_input_selectors(), "input field"
         )
         await input_el.click()
+        await input_el.focus()
         await asyncio.sleep(0.3)
 
         # Clear any existing text in the input
@@ -255,7 +283,10 @@ class BrowserManager:
         assert page is not None
 
         for char in text:
-            await page.keyboard.type(char)
+            if char == "\n":
+                await page.keyboard.press("Shift+Enter")
+            else:
+                await page.keyboard.type(char)
             delay = random.randint(TYPING_DELAY_MIN, TYPING_DELAY_MAX) / 1000.0
             await asyncio.sleep(delay)
 

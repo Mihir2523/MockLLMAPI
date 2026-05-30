@@ -91,6 +91,7 @@ class MockLLM:
         headless: bool = HEADLESS_DEFAULT,
         stateless: bool = True,
         system_prompt: Optional[str] = None,
+        cdp_url: Optional[str] = None,
     ):
         _setup_logging()
 
@@ -99,15 +100,19 @@ class MockLLM:
         self._headless = headless
         self._stateless = stateless
         self._system_prompt = system_prompt
+        self._cdp_url = cdp_url
         self._browser: Optional[BrowserManager] = None
         self._loop: Optional[asyncio.AbstractEventLoop] = None
         self._started = False
 
         logger.info(f"{LOG_PREFIX} Initialized with provider: {self._provider_name}")
-        logger.info(
-            f"{LOG_PREFIX} ⚠️  Make sure you are logged into "
-            f"{self._provider_name} in your browser before calling start()."
-        )
+        if self._cdp_url:
+            logger.info(f"{LOG_PREFIX} Using CDP connection to existing browser: {self._cdp_url}")
+        else:
+            logger.info(
+                f"{LOG_PREFIX} ⚠️  Make sure you are logged into "
+                f"{self._provider_name} in your browser before calling start()."
+            )
 
     # ══════════════════════════════════════════════════════════════════════
     #  ASYNC API
@@ -121,6 +126,7 @@ class MockLLM:
         self._browser = BrowserManager(
             provider=self._provider,
             headless=self._headless,
+            cdp_url=self._cdp_url,
         )
         await self._browser.launch()
         self._started = True
